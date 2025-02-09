@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+db.sqlite3
+media/
+
+# Environment variables
+.env
+
+# IDE specific files
+.vscode/
+.idea/
+
+# TensorFlow and Scrapy cache
+.cache/
+.scrapy/
