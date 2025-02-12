@@ -25,7 +25,8 @@ media/
 .scrapy/
 
 
-
+#excel files
+*.xlsx
 
 # Node.js and React
 node_modules/
