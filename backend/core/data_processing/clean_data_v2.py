@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
+from sklearn.preprocessing import StandardScaler
 import gc
 
 # Load sheets efficiently
@@ -8,7 +8,7 @@ file_ss2 = '../../excel_files/student_records_SS2.xlsx'
 
 # Specify only necessary columns and use efficient data types
 dtype_mapping = {
-    'StudentID': 'str',  # Change to string type
+    'StudentID': 'str',  
     'Score': 'float32',
     'Status': 'category'
 }
@@ -18,24 +18,25 @@ subject_scores_data = pd.read_excel(file_ss2, sheet_name='SubjectScores', dtype=
 attendance_data = pd.read_excel(file_ss2, sheet_name='Attendance', dtype=dtype_mapping)
 behavioral_records_data = pd.read_excel(file_ss2, sheet_name='BehavioralRecords', dtype=dtype_mapping)
 
-# Print column names to verify
+# Print column names for debugging
 print("SubjectScores columns:", subject_scores_data.columns)
 print("Attendance columns:", attendance_data.columns)
 print("BehavioralRecords columns:", behavioral_records_data.columns)
 
 # Drop unnecessary columns before merging
-# Use the correct column names from the DataFrame
-subject_scores_data = subject_scores_data[['StudentID', 'Score', 'SubjectName']]  # Use 'SubjectName' instead of 'Subject'
+subject_scores_data = subject_scores_data[['StudentID', 'Score', 'SubjectName']]
 attendance_data = attendance_data[['StudentID', 'Status']]
-behavioral_records_data = behavioral_records_data[['StudentID', 'Description']]  # Use 'Description' instead of 'BehaviorScore'
+behavioral_records_data = behavioral_records_data[['StudentID', 'Description']]
 
 # Ensure StudentID is unique to avoid excessive data merging
 attendance_data = attendance_data.drop_duplicates(subset=['StudentID'])
 behavioral_records_data = behavioral_records_data.drop_duplicates(subset=['StudentID'])
+print("attendance shit: ", attendance_data.loc[:9, 'Status'])
 
 # Efficiently merge datasets
 merged_data = subject_scores_data.merge(attendance_data, on='StudentID', how='left', copy=False)
 merged_data = merged_data.merge(behavioral_records_data, on='StudentID', how='left', copy=False)
+
 
 # Free up memory
 del subject_scores_data, attendance_data, behavioral_records_data
@@ -54,16 +55,33 @@ for col in categorical_columns:
 scaler = StandardScaler()
 merged_data[numerical_columns] = scaler.fit_transform(merged_data[numerical_columns])
 
-# Encode categorical data using LabelEncoder for memory efficiency
-label_encoder = LabelEncoder()
-categorical_columns_to_encode = ['Status']  # Adjust based on actual categorical columns
-for col in categorical_columns_to_encode:
-    if col in merged_data.columns:
-        merged_data[col] = label_encoder.fit_transform(merged_data[col])
+# Clean and map the 'Status' column
+print("Unique values in 'Status' before cleaning:", merged_data['Status'].unique())
 
-# Display final processed dataset
-print(merged_data.info())  # Check memory usage
-print(merged_data.head())
+# Clean the 'Status' column
+merged_data['Status'] = merged_data['Status'].str.strip().str.lower()
+
+# Replace variations with standardized values
+status_mapping = {
+    'present': 0,
+    'absent': 1,
+    'late': 2
+}
+
+
+# Handle unexpected values (optional)
+merged_data['Status'] = merged_data['Status'].fillna(0)  # Replace NaN with 0 (Present)
+
+print(merged_data.loc[:9, 'Status'])
+
+# Apply the mapping
+merged_data.loc[:9, 'Status'] = merged_data.loc[:9, 'Status'].map(status_mapping)
+
+print(merged_data.loc[:9, 'Status'])
+
+# # Display final processed dataset
+# print(merged_data.info())  # Check memory usage
+# print(merged_data.head())
 
 # Save the cleaned dataset to a new file (optional)
-merged_data.to_csv('../../excel_files/cleaned_student_records.csv_v2', index=False)
+# merged_data.to_csv('../../excel_files/cleaned_student_records.csv_v8', index=False)
