@@ -341,9 +341,19 @@ PEER_ANALYSIS_SETTINGS = {
 ANOMALY_DETECTION_SETTINGS = {
     'CONTAMINATION': 0.1,  # Expected proportion of anomalies
     'SENSITIVITY': 0.8,  # Detection sensitivity
+    'EPSILON': 1.0,  # Differential privacy parameter
     'TIME_WINDOW': 30,  # Days to look back
     'CACHE_TIMEOUT': 900,  # 15 minutes
-    'ENABLE_CACHING': True
+    'ENABLE_CACHING': True,
+    'PRIVACY_ENABLED': True
+}
+
+PERFORMANCE_PREDICTION_SETTINGS = {
+    'EPSILON': 1.0,  # Differential privacy parameter
+    'CACHE_TIMEOUT': 1800,  # 30 minutes
+    'ENABLE_CACHING': True,
+    'PRIVACY_ENABLED': True,
+    'MODEL_VERSION': 'v1.0'
 }
 
 # Celery Configuration for Async Processing

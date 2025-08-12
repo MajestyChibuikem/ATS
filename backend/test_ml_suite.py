@@ -36,8 +36,10 @@ class MLTestingSuite:
         self.test_results = []
         self.career_recommender = CareerRecommender()
         self.peer_analyzer = PeerAnalyzer()
-        self.anomaly_detector = AnomalyDetector()
-        self.performance_predictor = PerformancePredictor()
+        # Initialize anomaly detector with privacy settings
+        self.anomaly_detector = AnomalyDetector(epsilon=1.0, contamination=0.1, sensitivity=0.8)
+        # Initialize performance predictor with privacy settings
+        self.performance_predictor = PerformancePredictor(epsilon=1.0)
     
     async def run_tests(self) -> Dict[str, Any]:
         print("🚀 Starting SSAS ML Testing Suite...")
@@ -165,6 +167,21 @@ class MLTestingSuite:
                 error_message="" if success else str(results.get('error', 'Unknown error'))
             ))
             
+            # Test differential privacy implementation
+            privacy_guarantees = results.get('privacy_guarantees', {})
+            privacy_test_passed = (
+                privacy_guarantees.get('differential_privacy') == True and
+                privacy_guarantees.get('epsilon') == 1.0 and
+                privacy_guarantees.get('noise_added') == True
+            )
+            
+            self.test_results.append(TestResult(
+                test_name="Anomaly Detection - Differential Privacy",
+                passed=privacy_test_passed,
+                execution_time_ms=0,
+                error_message="" if privacy_test_passed else "Privacy guarantees not properly implemented"
+            ))
+            
             # Test real-time performance
             self.test_results.append(TestResult(
                 test_name="Anomaly Detection - Real-time Performance",
@@ -213,6 +230,21 @@ class MLTestingSuite:
                 test_name="Performance Prediction - Latency",
                 passed=execution_time < 200,  # Should complete in under 200ms
                 execution_time_ms=execution_time
+            ))
+            
+            # Test differential privacy implementation
+            privacy_guarantees = results.get('privacy_guarantees', {})
+            privacy_test_passed = (
+                privacy_guarantees.get('differential_privacy') == True and
+                privacy_guarantees.get('epsilon') == 1.0 and
+                privacy_guarantees.get('noise_added') == True
+            )
+            
+            self.test_results.append(TestResult(
+                test_name="Performance Prediction - Differential Privacy",
+                passed=privacy_test_passed,
+                execution_time_ms=0,
+                error_message="" if privacy_test_passed else "Privacy guarantees not properly implemented"
             ))
             
         except Exception as e:

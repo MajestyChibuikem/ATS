@@ -41,19 +41,44 @@ core/
 #### **🤖 Machine Learning Core (`backend/core/apps/ml/`)**
 ```
 ml/
-├── models/                         # Advanced ML models (100% success rate)
+├── models/                         # Advanced ML models with privacy protection (92.3% success rate)
 │   ├── career_recommender.py       # AI career guidance (66.5ms)
-│   ├── peer_analyzer.py           # Peer comparison analysis (91.8ms) 
-│   ├── anomaly_detector.py        # Performance anomaly detection (17.0ms)
-│   └── performance_predictor.py   # Future performance prediction (39.1ms)
+│   ├── peer_analyzer.py           # Peer comparison with k-anonymity (k=10) & differential privacy (ε=1.0) (91.8ms)
+│   ├── anomaly_detector.py        # Anomaly detection with differential privacy (ε=1.0) (17.0ms)
+│   ├── performance_predictor.py   # Performance prediction with differential privacy (ε=1.0) (39.1ms)
+│   ├── feature_engineer.py        # Base feature engineering with pipeline orchestration
+│   ├── model_factory.py           # Factory pattern for model creation across tiers
+│   ├── model_manager.py           # Central orchestration for all three tiers
+│   ├── tier1_critical_predictor.py # Ensemble prediction system for critical subjects
+│   ├── tier2_science_predictor.py # Moderate complexity prediction for science subjects
+│   └── tier3_arts_predictor.py    # Simplified prediction for arts subjects
+├── utils/                          # Privacy & utility modules
+│   ├── __init__.py                 # ML utilities package
+│   ├── privacy_audit_logger.py     # Comprehensive privacy audit logging system
+│   ├── feature_engineering/        # Tier-specific feature engineering
+│   │   ├── critical_features.py    # Advanced features for critical subjects (30+ features)
+│   │   ├── science_features.py     # Science-specific features with prerequisites (32 features)
+│   │   └── arts_features.py        # Arts-specific features with efficiency focus (34 features)
+│   └── validation/                 # Validation strategies
+│       ├── temporal_validator.py   # Temporal validation with TimeSeriesSplit
+│       └── cross_subject_validator.py # Cross-subject validation with prerequisites
 └── __init__.py
 ```
+
+**Three-Tier Modular Architecture (COMPLETE)**:
+- **Tier 1 - Critical Subjects**: Mathematics, English Language, Further Mathematics (Ensemble models, 30+ features)
+- **Tier 2 - Science Subjects**: Physics, Chemistry, Biology, Agricultural Science (Gradient Boosting, 32 prerequisite-aware features)
+- **Tier 3 - Arts Subjects**: Government, Economics, History, Literature, Geography, Christian Religious Studies, Civic Education (Random Forest, 34 efficiency-focused features)
 
 **Performance Achievements:**
 - **Career Recommender**: 66.5ms response time, market factor analysis
 - **Peer Analyzer**: 128x performance improvement (11.7s → 91.8ms)
 - **Anomaly Detector**: Real-time detection with 17ms response
 - **Performance Predictor**: 39.1ms prediction with confidence intervals
+- **Tier 1 Critical Predictor**: Ensemble models for Mathematics, English, Further Mathematics (5,185 samples, 30+ features)
+- **Tier 2 Science Predictor**: Prerequisite-aware models for Physics, Chemistry, Biology, Agricultural Science (4,740 samples, 32 features)
+- **Tier 3 Arts Predictor**: Simplified models for Government, Economics, History, Literature, Geography, Christian Religious Studies, Civic Education (34 efficiency-focused features)
+- **Total Architecture**: 14 subjects, 96+ specialized features, 9,925+ training samples
 
 #### **🔗 API Layer (`backend/core/apps/api/`)**
 ```
@@ -86,26 +111,33 @@ api/
 10. `GET /api/v1/system/health/` - System health
 11. `GET /api/v1/system/metrics/` - Performance metrics
 12. `GET /api/v1/system/api-metrics/` - API metrics
+13. `GET /api/v1/system/privacy-compliance/` - Privacy compliance status
 
-#### **👨‍🎓 Student Data Management (`backend/core/apps/students/`)**
+#### **👨‍🎓 Student & Teacher Data Management (`backend/core/apps/students/`)**
 ```
 students/
-├── models.py                       # Student & academic data models (optimized)
+├── models.py                       # Student & teacher data models (optimized with teacher integration)
 ├── services.py                     # Business logic
 ├── services/
 │   └── validation.py               # Data validation services
-├── admin.py                        # Django admin interface
+├── admin.py                        # Django admin interface (enhanced with teacher management)
 ├── views.py                        # Student data views
 ├── apps.py                         # Django app configuration
 ├── tests.py                        # Student model tests
 ├── management/commands/            # Data management commands
-│   ├── import_student_data.py      # Bulk data import
-│   └── export_student_data.py      # Data export utilities
+│   ├── import_student_data.py      # Bulk data import (to be enhanced for teacher data)
+│   └── export_student_data.py      # Data export utilities (to be enhanced for teacher data)
 └── migrations/                     # Database migrations (optimized)
     ├── 0001_initial.py             # Initial schema
     ├── 0002_remove_studentscore_student_sco_total_s_b3e2a1_idx_and_more.py
-    └── 0003_studentscore_student_sco_total_s_b3e2a1_idx_and_more.py
+    ├── 0003_studentscore_student_sco_total_s_b3e2a1_idx_and_more.py
+    └── 0004_teacherperformance_teacher_studentattendance_teacher_and_more.py  # Teacher data integration
 ```
+
+**New Teacher Models Added:**
+- **Teacher**: Teacher profiles with qualifications, experience, and specializations
+- **TeacherPerformance**: Performance metrics by subject and academic year
+- **Enhanced Student Models**: StudentScore, StudentAttendance, StudentBehavior now include teacher relationships
 
 #### **📊 Analytics & Dashboard (`backend/core/apps/`)**
 ```

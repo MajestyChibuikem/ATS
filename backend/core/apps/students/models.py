@@ -141,6 +141,181 @@ class Subject(models.Model):
         return f"{self.code} - {self.name}"
 
 
+class Teacher(models.Model):
+    """
+    Teacher model for storing teacher information and qualifications.
+    
+    This model contains comprehensive information about teachers including
+    their qualifications, experience, specializations, and performance metrics.
+    """
+    
+    # Basic Information
+    teacher_id = models.CharField(max_length=20, unique=True, help_text="Unique teacher identifier")
+    name = models.CharField(max_length=200, help_text="Teacher's full name")
+    
+    # Professional Information
+    years_experience = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(50)],
+        help_text="Total years of teaching experience"
+    )
+    qualification_level = models.CharField(
+        max_length=50,
+        choices=[
+            ('HND + PGDE', 'HND + PGDE'),
+            ('B.Sc + PGDE', 'B.Sc + PGDE'),
+            ('B.Ed', 'B.Ed'),
+            ('M.Ed', 'M.Ed'),
+            ('PhD', 'PhD'),
+        ],
+        help_text="Teacher's highest qualification"
+    )
+    specialization = models.CharField(
+        max_length=50,
+        choices=[
+            ('Mathematics', 'Mathematics'),
+            ('Sciences', 'Sciences'),
+            ('Languages', 'Languages'),
+            ('Arts', 'Arts'),
+            ('General', 'General'),
+        ],
+        help_text="Teacher's primary specialization"
+    )
+    
+    # Workload and Performance
+    teaching_load = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(40)],
+        help_text="Teaching hours per week"
+    )
+    performance_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
+        help_text="Teacher performance rating (0-5)"
+    )
+    years_at_school = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(50)],
+        help_text="Years of service at current school"
+    )
+    
+    # System Information
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Record creation timestamp")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Record last update timestamp")
+    is_active = models.BooleanField(default=True, help_text="Whether the teacher is currently active")
+    
+    class Meta:
+        db_table = 'teachers'
+        ordering = ['teacher_id']
+        verbose_name = 'Teacher'
+        verbose_name_plural = 'Teachers'
+        indexes = [
+            models.Index(fields=['teacher_id']),
+            models.Index(fields=['specialization']),
+            models.Index(fields=['qualification_level']),
+            models.Index(fields=['performance_rating']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        """String representation of the teacher."""
+        return f"{self.teacher_id} - {self.name}"
+    
+    @property
+    def full_name(self):
+        """Get the teacher's full name."""
+        return self.name
+    
+    @property
+    def experience_level(self):
+        """Get the teacher's experience level category."""
+        if self.years_experience < 5:
+            return 'Novice'
+        elif self.years_experience < 10:
+            return 'Intermediate'
+        elif self.years_experience < 20:
+            return 'Experienced'
+        else:
+            return 'Senior'
+
+
+class TeacherPerformance(models.Model):
+    """
+    Teacher performance model for tracking teacher effectiveness.
+    
+    This model stores performance metrics for teachers by subject and academic year,
+    including class performance, student satisfaction, and professional development.
+    """
+    
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='performance_records',
+        help_text="Teacher for this performance record"
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='teacher_performance',
+        help_text="Subject for this performance record"
+    )
+    academic_year = models.CharField(max_length=20, help_text="Academic year (e.g., 2023/2024)")
+    
+    # Performance Metrics
+    average_class_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Average class score under this teacher"
+    )
+    number_of_students = models.IntegerField(
+        validators=[MinValueValidator(0)],
+        help_text="Number of students taught by this teacher"
+    )
+    pass_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Percentage of students who passed"
+    )
+    student_satisfaction_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
+        help_text="Student satisfaction rating (0-5)"
+    )
+    professional_development_hours = models.IntegerField(
+        validators=[MinValueValidator(0)],
+        help_text="Professional development hours completed"
+    )
+    class_attendance_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=3,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Class attendance rate (0-1)"
+    )
+    
+    # System Information
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Record creation timestamp")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Record last update timestamp")
+    
+    class Meta:
+        db_table = 'teacher_performance'
+        ordering = ['teacher', 'subject', 'academic_year']
+        verbose_name = 'Teacher Performance'
+        verbose_name_plural = 'Teacher Performance'
+        unique_together = ['teacher', 'subject', 'academic_year']
+        indexes = [
+            models.Index(fields=['teacher', 'subject']),
+            models.Index(fields=['academic_year']),
+            models.Index(fields=['average_class_score']),
+            models.Index(fields=['pass_rate']),
+            models.Index(fields=['student_satisfaction_rating']),
+        ]
+    
+    def __str__(self):
+        """String representation of the teacher performance record."""
+        return f"{self.teacher.name} - {self.subject.name} - {self.academic_year}"
+
+
 class AcademicYear(models.Model):
     """
     Academic year model for organizing academic periods.
@@ -184,7 +359,7 @@ class StudentScore(models.Model):
     Student score model for storing academic performance data.
     
     This model stores individual subject scores for students
-    across different academic periods.
+    across different academic periods, now including teacher information.
     """
     
     student = models.ForeignKey(
@@ -204,6 +379,14 @@ class StudentScore(models.Model):
         on_delete=models.CASCADE,
         related_name='student_scores',
         help_text="Academic year for this score"
+    )
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_scores',
+        help_text="Teacher who taught this subject"
     )
     
     # Score Information
@@ -237,6 +420,7 @@ class StudentScore(models.Model):
     def term(self):
         """Get the term from the academic year."""
         return self.academic_year.term if self.academic_year else None
+    
     grade = models.CharField(
         max_length=2,
         choices=[
@@ -267,17 +451,22 @@ class StudentScore(models.Model):
         indexes = [
             models.Index(fields=['student', 'subject']),
             models.Index(fields=['academic_year']),
+            models.Index(fields=['teacher']),
             models.Index(fields=['created_at']),
             models.Index(fields=['grade']),
             # Optimization indexes for peer analysis
             models.Index(fields=['total_score']),
             models.Index(fields=['student', 'total_score']),
             models.Index(fields=['subject', 'total_score']),
+            # Teacher-related indexes for ML features
+            models.Index(fields=['teacher', 'subject']),
+            models.Index(fields=['teacher', 'total_score']),
         ]
     
     def __str__(self):
         """String representation of the student score."""
-        return f"{self.student.student_id} - {self.subject.name} - {self.total_score}"
+        teacher_name = f" - {self.teacher.name}" if self.teacher else ""
+        return f"{self.student.student_id} - {self.subject.name} - {self.total_score}{teacher_name}"
     
     def save(self, *args, **kwargs):
         """Override save to calculate total score and grade."""
@@ -311,7 +500,8 @@ class StudentAttendance(models.Model):
     """
     Student attendance model for tracking attendance records.
     
-    This model stores daily attendance records for students.
+    This model stores daily attendance records for students,
+    now including teacher information for class tracking.
     """
     
     student = models.ForeignKey(
@@ -319,6 +509,14 @@ class StudentAttendance(models.Model):
         on_delete=models.CASCADE,
         related_name='attendance_records',
         help_text="Student for this attendance record"
+    )
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_records',
+        help_text="Teacher responsible for this class"
     )
     date = models.DateField(help_text="Attendance date")
     status = models.CharField(
@@ -349,20 +547,23 @@ class StudentAttendance(models.Model):
         unique_together = ['student', 'date']
         indexes = [
             models.Index(fields=['student', 'date']),
+            models.Index(fields=['teacher', 'date']),
             models.Index(fields=['date']),
             models.Index(fields=['status']),
         ]
     
     def __str__(self):
         """String representation of the attendance record."""
-        return f"{self.student.student_id} - {self.date} - {self.status}"
+        teacher_name = f" - {self.teacher.name}" if self.teacher else ""
+        return f"{self.student.student_id} - {self.date} - {self.status}{teacher_name}"
 
 
 class StudentBehavior(models.Model):
     """
     Student behavior model for tracking behavioral records.
     
-    This model stores behavioral observations and incidents.
+    This model stores behavioral observations and incidents,
+    now including teacher information for behavioral tracking.
     """
     
     student = models.ForeignKey(
@@ -370,6 +571,14 @@ class StudentBehavior(models.Model):
         on_delete=models.CASCADE,
         related_name='behavior_records',
         help_text="Student for this behavior record"
+    )
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='behavior_records',
+        help_text="Teacher who observed this behavior"
     )
     date = models.DateField(help_text="Behavior record date")
     category = models.CharField(
@@ -411,10 +620,12 @@ class StudentBehavior(models.Model):
         verbose_name_plural = 'Student Behavior'
         indexes = [
             models.Index(fields=['student', 'date']),
+            models.Index(fields=['teacher', 'date']),
             models.Index(fields=['category']),
             models.Index(fields=['severity']),
         ]
     
     def __str__(self):
         """String representation of the behavior record."""
-        return f"{self.student.student_id} - {self.date} - {self.category}"
+        teacher_name = f" - {self.teacher.name}" if self.teacher else ""
+        return f"{self.student.student_id} - {self.date} - {self.category}{teacher_name}"

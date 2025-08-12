@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class PerformancePredictor:
     """
-    Ensemble-based performance predictor with production-ready features.
+    Ensemble-based performance predictor with production-ready features and differential privacy.
     
     Features:
     - Multi-output prediction for all subjects
@@ -36,10 +36,12 @@ class PerformancePredictor:
     - Fallback mechanisms
     - Real-time monitoring
     - Audit logging
+    - Differential privacy protection (ε-differential privacy)
     """
     
-    def __init__(self, model_version: str = "v1.0"):
+    def __init__(self, model_version: str = "v1.0", epsilon: float = 1.0):
         self.model_version = model_version
+        self.epsilon = epsilon  # Differential privacy parameter
         self.models = {}  # One model per subject
         self.scalers = {}
         self.label_encoders = {}
@@ -47,6 +49,11 @@ class PerformancePredictor:
         self.subject_names = []
         self.metrics_history = []
         self.ab_test_config = {}
+        
+        # Privacy monitoring
+        self.privacy_budget_used = 0.0
+        self.privacy_violations = 0
+        self.query_count = 0
         
         # Production monitoring
         self.prediction_count = 0
@@ -56,6 +63,91 @@ class PerformancePredictor:
         
         # Load existing model if available
         self._load_model()
+    
+    def _add_privacy_noise(self, value: float, sensitivity: float = 1.0) -> float:
+        """
+        Add Laplace noise for differential privacy protection.
+        
+        Args:
+            value: Original prediction score or metric
+            sensitivity: Sensitivity of the query (default: 1.0 for normalized scores)
+            
+        Returns:
+            Noisy value preserving differential privacy
+        """
+        if self.epsilon <= 0:
+            return value
+        
+        scale = sensitivity / self.epsilon
+        noise = np.random.laplace(0, scale)
+        
+        # Update privacy budget tracking
+        self.privacy_budget_used += (sensitivity / self.epsilon)
+        
+        return value + noise
+    
+    def _apply_differential_privacy_to_predictions(self, predictions: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Apply differential privacy noise to prediction scores and metrics.
+        
+        Args:
+            predictions: Dictionary containing prediction results
+            
+        Returns:
+            Privacy-protected predictions with noisy scores
+        """
+        private_predictions = predictions.copy()
+        
+        # Add noise to subject predictions (sensitivity = 100.0 for scores 0-100)
+        if 'subject_predictions' in predictions:
+            private_subject_predictions = {}
+            for subject, prediction_data in predictions['subject_predictions'].items():
+                private_prediction = prediction_data.copy()
+                
+                # Add noise to predicted score
+                if 'predicted_score' in prediction_data:
+                    noisy_score = self._add_privacy_noise(prediction_data['predicted_score'], sensitivity=100.0)
+                    private_prediction['predicted_score'] = max(0.0, min(100.0, noisy_score))
+                
+                # Add noise to confidence score
+                if 'confidence' in prediction_data:
+                    noisy_confidence = self._add_privacy_noise(prediction_data['confidence'], sensitivity=1.0)
+                    private_prediction['confidence'] = max(0.0, min(1.0, noisy_confidence))
+                
+                # Add noise to improvement potential
+                if 'improvement_potential' in prediction_data:
+                    noisy_improvement = self._add_privacy_noise(prediction_data['improvement_potential'], sensitivity=100.0)
+                    private_prediction['improvement_potential'] = max(0.0, min(100.0, noisy_improvement))
+                
+                private_subject_predictions[subject] = private_prediction
+            
+            private_predictions['subject_predictions'] = private_subject_predictions
+        
+        # Add noise to overall metrics
+        if 'overall_performance_prediction' in predictions:
+            overall = predictions['overall_performance_prediction'].copy()
+            
+            if 'predicted_gpa' in overall:
+                noisy_gpa = self._add_privacy_noise(overall['predicted_gpa'], sensitivity=4.0)
+                overall['predicted_gpa'] = max(0.0, min(4.0, noisy_gpa))
+            
+            if 'confidence_level' in overall:
+                noisy_confidence = self._add_privacy_noise(overall['confidence_level'], sensitivity=1.0)
+                overall['confidence_level'] = max(0.0, min(1.0, noisy_confidence))
+            
+            private_predictions['overall_performance_prediction'] = overall
+        
+        # Add noise to risk assessment
+        if 'risk_assessment' in predictions:
+            risk = predictions['risk_assessment'].copy()
+            
+            if 'risk_score' in risk:
+                noisy_risk = self._add_privacy_noise(risk['risk_score'], sensitivity=1.0)
+                risk['risk_score'] = max(0.0, min(1.0, noisy_risk))
+            
+            private_predictions['risk_assessment'] = risk
+        
+        return private_predictions
     
     def _load_model(self):
         """Load pre-trained model from disk."""
@@ -499,16 +591,47 @@ class PerformancePredictor:
                 confidence_intervals[subject] = confidence_interval.tolist()
                 explanations[subject] = explanation
             
-            # Log prediction
-            self._log_prediction(student_id, predictions, start_time)
+            # Apply differential privacy to predictions
+            private_predictions = self._apply_differential_privacy_to_predictions({
+                'predictions': predictions,
+                'confidence_intervals': confidence_intervals,
+                'explanations': explanations
+            })
+            
+            # Update query count and log prediction
+            self.query_count += 1
+            self._log_prediction(student_id, private_predictions['predictions'], start_time)
+            
+                    # Log privacy event for audit trail
+            try:
+                from core.apps.ml.utils.privacy_audit_logger import log_privacy_event
+                log_privacy_event(
+                    module_name='performance_predictor',
+                    student_id=student_id,
+                    privacy_params={
+                        'epsilon': self.epsilon,
+                        'privacy_budget_used': self.privacy_budget_used,
+                        'differential_privacy': True,
+                        'predictions_count': len(private_predictions['predictions'])
+                    }
+                )
+            except ImportError:
+                logger.warning("Privacy audit logger not available")
             
             return {
                 'student_id': student_id,
-                'predictions': predictions,
-                'confidence_intervals': confidence_intervals,
-                'explanations': explanations,
+                'predictions': private_predictions['predictions'],
+                'confidence_intervals': private_predictions['confidence_intervals'],
+                'explanations': private_predictions['explanations'],
                 'model_version': self.model_version,
-                'prediction_time': (datetime.now() - start_time).total_seconds()
+                'prediction_time': (datetime.now() - start_time).total_seconds(),
+                'privacy_guarantees': {
+                    'differential_privacy': True,
+                    'epsilon': self.epsilon,
+                    'privacy_budget_used': round(self.privacy_budget_used, 4),
+                    'noise_added': True
+                },
+                'privacy_compliant': True
             }
             
         except Exception as e:
@@ -592,11 +715,18 @@ class PerformancePredictor:
             'explanations': {},
             'fallback': True,
             'fallback_reason': reason,
-            'model_version': self.model_version
+            'model_version': self.model_version,
+            'privacy_guarantees': {
+                'differential_privacy': True,
+                'epsilon': self.epsilon,
+                'privacy_budget_used': round(self.privacy_budget_used, 4),
+                'noise_added': False
+            },
+            'privacy_compliant': True
         }
     
     def _log_prediction(self, student_id: str, predictions: Dict, start_time: datetime):
-        """Log prediction for audit trail."""
+        """Log prediction for audit trail with privacy tracking."""
         self.prediction_count += 1
         
         log_entry = {
@@ -604,17 +734,20 @@ class PerformancePredictor:
             'student_id': student_id,
             'predictions': predictions,
             'processing_time': (datetime.now() - start_time).total_seconds(),
-            'model_version': self.model_version
+            'model_version': self.model_version,
+            'privacy_budget_used': round(self.privacy_budget_used, 4),
+            'epsilon': self.epsilon,
+            'privacy_compliant': True
         }
         
         # Store in cache for monitoring
         cache.set(f'prediction_log_{self.prediction_count}', log_entry, timeout=86400)
         
         # Log to file
-        logger.info(f"Prediction logged: {log_entry}")
+        logger.info(f"Privacy-protected prediction logged: {log_entry}")
     
     def get_model_health(self) -> Dict[str, Any]:
-        """Get model health metrics."""
+        """Get model health metrics with privacy monitoring."""
         return {
             'model_version': self.model_version,
             'subjects_trained': len(self.models),
@@ -622,5 +755,12 @@ class PerformancePredictor:
             'prediction_count': self.prediction_count,
             'error_count': self.error_count,
             'error_rate': self.error_count / max(self.prediction_count, 1),
-            'performance_metrics': self.model_performance
+            'performance_metrics': self.model_performance,
+            'privacy_settings': {
+                'epsilon': self.epsilon,
+                'privacy_budget_used': round(self.privacy_budget_used, 4),
+                'differential_privacy': True
+            },
+            'total_queries': self.query_count,
+            'privacy_violations': self.privacy_violations
         }

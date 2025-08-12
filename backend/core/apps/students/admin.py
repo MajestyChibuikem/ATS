@@ -8,7 +8,10 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Student, Subject, AcademicYear, StudentScore, StudentAttendance, StudentBehavior
+from .models import (
+    Student, Subject, Teacher, TeacherPerformance, AcademicYear, 
+    StudentScore, StudentAttendance, StudentBehavior
+)
 
 
 @admin.register(Student)
@@ -77,6 +80,84 @@ class SubjectAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+@admin.register(Teacher)
+class TeacherAdmin(admin.ModelAdmin):
+    """Admin interface for Teacher model."""
+    
+    list_display = [
+        'teacher_id', 'name', 'specialization', 'qualification_level',
+        'years_experience', 'performance_rating', 'is_active'
+    ]
+    list_filter = [
+        'specialization', 'qualification_level', 'is_active',
+        'years_experience', 'performance_rating'
+    ]
+    search_fields = [
+        'teacher_id', 'name', 'specialization'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'experience_level']
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('teacher_id', 'name')
+        }),
+        ('Professional Information', {
+            'fields': ('years_experience', 'qualification_level', 'specialization')
+        }),
+        ('Performance & Workload', {
+            'fields': ('teaching_load', 'performance_rating', 'years_at_school')
+        }),
+        ('System Information', {
+            'fields': ('is_active', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ['teacher_id']
+    list_per_page = 25
+    
+    def experience_level(self, obj):
+        """Display experience level."""
+        return obj.experience_level
+    experience_level.short_description = 'Experience Level'
+
+
+@admin.register(TeacherPerformance)
+class TeacherPerformanceAdmin(admin.ModelAdmin):
+    """Admin interface for TeacherPerformance model."""
+    
+    list_display = [
+        'teacher', 'subject', 'academic_year', 'average_class_score',
+        'pass_rate', 'student_satisfaction_rating', 'number_of_students'
+    ]
+    list_filter = [
+        'subject', 'academic_year', 'teacher__specialization'
+    ]
+    search_fields = [
+        'teacher__teacher_id', 'teacher__name', 'subject__name', 'subject__code'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Teacher & Subject', {
+            'fields': ('teacher', 'subject', 'academic_year')
+        }),
+        ('Performance Metrics', {
+            'fields': ('average_class_score', 'number_of_students', 'pass_rate')
+        }),
+        ('Quality Indicators', {
+            'fields': ('student_satisfaction_rating', 'professional_development_hours', 'class_attendance_rate')
+        }),
+        ('System Information', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ['teacher', 'subject', 'academic_year']
+    list_per_page = 25
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related."""
+        return super().get_queryset(request).select_related('teacher', 'subject')
+
+
 @admin.register(AcademicYear)
 class AcademicYearAdmin(admin.ModelAdmin):
     """Admin interface for AcademicYear model."""
@@ -105,20 +186,20 @@ class StudentScoreAdmin(admin.ModelAdmin):
     """Admin interface for StudentScore model."""
     
     list_display = [
-        'student', 'subject', 'academic_year', 'continuous_assessment',
+        'student', 'subject', 'teacher', 'academic_year', 'continuous_assessment',
         'examination_score', 'total_score', 'grade', 'created_at'
     ]
     list_filter = [
-        'subject', 'academic_year', 'grade', 'created_at'
+        'subject', 'academic_year', 'grade', 'teacher__specialization', 'created_at'
     ]
     search_fields = [
         'student__student_id', 'student__first_name', 'student__last_name',
-        'subject__name', 'subject__code'
+        'subject__name', 'subject__code', 'teacher__name'
     ]
     readonly_fields = ['total_score', 'grade', 'created_at', 'updated_at']
     fieldsets = (
         ('Student Information', {
-            'fields': ('student', 'subject', 'academic_year')
+            'fields': ('student', 'subject', 'academic_year', 'teacher')
         }),
         ('Scores', {
             'fields': ('continuous_assessment', 'examination_score', 'total_score', 'grade')
@@ -133,7 +214,7 @@ class StudentScoreAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         """Optimize queryset with select_related."""
-        return super().get_queryset(request).select_related('student', 'subject', 'academic_year')
+        return super().get_queryset(request).select_related('student', 'subject', 'academic_year', 'teacher')
 
 
 @admin.register(StudentAttendance)
@@ -141,19 +222,19 @@ class StudentAttendanceAdmin(admin.ModelAdmin):
     """Admin interface for StudentAttendance model."""
     
     list_display = [
-        'student', 'date', 'status', 'reason_short', 'recorded_by', 'created_at'
+        'student', 'teacher', 'date', 'status', 'reason_short', 'recorded_by', 'created_at'
     ]
     list_filter = [
-        'status', 'date', 'created_at'
+        'status', 'date', 'teacher__specialization', 'created_at'
     ]
     search_fields = [
         'student__student_id', 'student__first_name', 'student__last_name',
-        'reason'
+        'teacher__name', 'reason'
     ]
     readonly_fields = ['created_at']
     fieldsets = (
         ('Attendance Information', {
-            'fields': ('student', 'date', 'status')
+            'fields': ('student', 'teacher', 'date', 'status')
         }),
         ('Details', {
             'fields': ('reason', 'recorded_by')
@@ -173,7 +254,7 @@ class StudentAttendanceAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         """Optimize queryset with select_related."""
-        return super().get_queryset(request).select_related('student', 'recorded_by')
+        return super().get_queryset(request).select_related('student', 'teacher', 'recorded_by')
 
 
 @admin.register(StudentBehavior)
@@ -181,20 +262,20 @@ class StudentBehaviorAdmin(admin.ModelAdmin):
     """Admin interface for StudentBehavior model."""
     
     list_display = [
-        'student', 'date', 'category', 'severity', 'description_short',
+        'student', 'teacher', 'date', 'category', 'severity', 'description_short',
         'recorded_by', 'created_at'
     ]
     list_filter = [
-        'category', 'severity', 'date', 'created_at'
+        'category', 'severity', 'date', 'teacher__specialization', 'created_at'
     ]
     search_fields = [
         'student__student_id', 'student__first_name', 'student__last_name',
-        'description', 'action_taken'
+        'teacher__name', 'description', 'action_taken'
     ]
     readonly_fields = ['created_at']
     fieldsets = (
         ('Behavior Information', {
-            'fields': ('student', 'date', 'category', 'severity')
+            'fields': ('student', 'teacher', 'date', 'category', 'severity')
         }),
         ('Details', {
             'fields': ('description', 'action_taken', 'recorded_by')
@@ -214,7 +295,7 @@ class StudentBehaviorAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         """Optimize queryset with select_related."""
-        return super().get_queryset(request).select_related('student', 'recorded_by')
+        return super().get_queryset(request).select_related('student', 'teacher', 'recorded_by')
 
 
 # Customize admin site

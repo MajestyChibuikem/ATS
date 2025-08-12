@@ -44,6 +44,7 @@ class PeerAnalyzer:
         self.analysis_cache = {}
         
         # Privacy monitoring
+        self.privacy_budget_used = 0.0
         self.query_count = 0
         self.privacy_violations = 0
         self.last_analysis_time = None
@@ -129,11 +130,28 @@ class PeerAnalyzer:
                 'analysis_timestamp': datetime.now().isoformat()
             }
             
-            # Cache the complete result for 15 minutes
+                        # Cache the complete result for 15 minutes
             cache.set(cache_key, result, 900)
             
-            # Log analysis
+            # Log analysis with privacy audit
             self._log_analysis(student_id, len(peer_group), insights)
+            
+            # Log privacy event for audit trail
+            try:
+                from core.apps.ml.utils.privacy_audit_logger import log_privacy_event
+                log_privacy_event(
+                    module_name='peer_analyzer',
+                    student_id=student_id,
+                    privacy_params={
+                        'epsilon': self.epsilon,
+                        'privacy_budget_used': self.privacy_budget_used,
+                        'k_anonymity': self.k_anonymity,
+                        'differential_privacy': True,
+                        'peer_group_size': len(peer_group)
+                    }
+                )
+            except ImportError:
+                logger.warning("Privacy audit logger not available")
             
             return result
             

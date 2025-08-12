@@ -95,7 +95,14 @@ def batch_anomaly_detection(student_ids: List[str]) -> List[Dict[str, Any]]:
         List of anomaly detection results
     """
     try:
-        detector = AnomalyDetector()
+        # Initialize with privacy settings
+        from django.conf import settings
+        anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+        detector = AnomalyDetector(
+            contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+            sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+            epsilon=anomaly_settings.get('EPSILON', 1.0)
+        )
         results = []
         
         for student_id in student_ids:
@@ -131,15 +138,31 @@ def comprehensive_student_analysis(student_id: str) -> Dict[str, Any]:
     try:
         start_time = datetime.now()
         
-        # Initialize all ML modules
+        # Initialize all ML modules with privacy settings
         career_recommender = CareerRecommender()
         peer_analyzer = PeerAnalyzer()
-        anomaly_detector = AnomalyDetector()
+        
+        # Initialize anomaly detector with privacy settings
+        from django.conf import settings
+        anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+        anomaly_detector = AnomalyDetector(
+            contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+            sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+            epsilon=anomaly_settings.get('EPSILON', 1.0)
+        )
+        
+        # Initialize performance predictor with privacy settings
+        prediction_settings = getattr(settings, 'PERFORMANCE_PREDICTION_SETTINGS', {})
+        performance_predictor = PerformancePredictor(
+            model_version=prediction_settings.get('MODEL_VERSION', 'v1.0'),
+            epsilon=prediction_settings.get('EPSILON', 1.0)
+        )
         
         # Perform all analyses
         career_results = career_recommender.recommend_careers(student_id)
         peer_results = peer_analyzer.analyze_student_peers(student_id)
         anomaly_results = anomaly_detector.detect_anomalies(student_id)
+        performance_results = performance_predictor.predict(student_id)
         
         # Compile comprehensive results
         comprehensive_results = {
@@ -149,14 +172,17 @@ def comprehensive_student_analysis(student_id: str) -> Dict[str, Any]:
             'career_analysis': career_results,
             'peer_analysis': peer_results,
             'anomaly_analysis': anomaly_results,
+            'performance_analysis': performance_results,
             'summary': {
                 'career_recommendations_count': len(career_results.get('career_recommendations', [])),
                 'peer_group_size': peer_results.get('peer_group_size', 0),
                 'anomalies_detected': anomaly_results.get('anomalies_detected', 0),
+                'performance_predictions_count': len(performance_results.get('predictions', {})),
                 'overall_confidence': min(
                     career_results.get('recommendation_confidence', 0),
                     peer_results.get('analysis_confidence', 1),
-                    anomaly_results.get('detection_confidence', 1)
+                    anomaly_results.get('detection_confidence', 1),
+                    performance_results.get('prediction_confidence', 1)
                 )
             }
         }
@@ -198,12 +224,29 @@ def health_check_ml_modules() -> Dict[str, Any]:
         except Exception as e:
             health_results['peer_analyzer'] = {'status': 'error', 'error': str(e)}
         
-        # Check anomaly detector
+        # Check anomaly detector with privacy settings
         try:
-            anomaly_detector = AnomalyDetector()
+            from django.conf import settings
+            anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+            anomaly_detector = AnomalyDetector(
+                contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+                sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+                epsilon=anomaly_settings.get('EPSILON', 1.0)
+            )
             health_results['anomaly_detector'] = anomaly_detector.get_detection_health()
         except Exception as e:
             health_results['anomaly_detector'] = {'status': 'error', 'error': str(e)}
+        
+        # Check performance predictor with privacy settings
+        try:
+            prediction_settings = getattr(settings, 'PERFORMANCE_PREDICTION_SETTINGS', {})
+            performance_predictor = PerformancePredictor(
+                model_version=prediction_settings.get('MODEL_VERSION', 'v1.0'),
+                epsilon=prediction_settings.get('EPSILON', 1.0)
+            )
+            health_results['performance_predictor'] = performance_predictor.get_model_health()
+        except Exception as e:
+            health_results['performance_predictor'] = {'status': 'error', 'error': str(e)}
         
         # Overall health status
         overall_status = 'healthy'

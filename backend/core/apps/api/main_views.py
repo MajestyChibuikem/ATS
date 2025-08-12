@@ -241,8 +241,13 @@ def get_anomaly_detection(request, student_id: str):
         # Get time window
         time_window = int(request.GET.get('time_window', 30))
         
-        # Generate analysis
-        detector = AnomalyDetector()
+        # Generate analysis with privacy settings from configuration
+        anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+        detector = AnomalyDetector(
+            contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+            sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+            epsilon=anomaly_settings.get('EPSILON', 1.0)
+        )
         result = detector.detect_anomalies(student_id, time_window)
         
         # Cache the result
@@ -292,24 +297,41 @@ def get_comprehensive_analysis(request, student_id: str):
                 'message': 'Analysis started in background'
             })
         
-        # Perform synchronous analysis
+        # Perform synchronous analysis with privacy settings
         career_recommender = CareerRecommender()
         peer_analyzer = PeerAnalyzer()
-        anomaly_detector = AnomalyDetector()
+        
+        # Initialize anomaly detector with privacy settings
+        anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+        anomaly_detector = AnomalyDetector(
+            contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+            sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+            epsilon=anomaly_settings.get('EPSILON', 1.0)
+        )
+        
+        # Initialize performance predictor with privacy settings
+        prediction_settings = getattr(settings, 'PERFORMANCE_PREDICTION_SETTINGS', {})
+        performance_predictor = PerformancePredictor(
+            model_version=prediction_settings.get('MODEL_VERSION', 'v1.0'),
+            epsilon=prediction_settings.get('EPSILON', 1.0)
+        )
         
         career_results = career_recommender.recommend_careers(student_id)
         peer_results = peer_analyzer.analyze_student_peers(student_id)
         anomaly_results = anomaly_detector.detect_anomalies(student_id)
+        performance_results = performance_predictor.predict(student_id)
         
         comprehensive_results = {
             'student_id': student_id,
             'career_analysis': career_results,
             'peer_analysis': peer_results,
             'anomaly_analysis': anomaly_results,
+            'performance_analysis': performance_results,
             'summary': {
                 'career_recommendations_count': len(career_results.get('career_recommendations', [])),
                 'peer_group_size': peer_results.get('peer_group_size', 0),
-                'anomalies_detected': anomaly_results.get('anomalies_detected', 0)
+                'anomalies_detected': anomaly_results.get('anomalies_detected', 0),
+                'performance_predictions_count': len(performance_results.get('predictions', {}))
             }
         }
         
@@ -479,15 +501,30 @@ def get_system_metrics(request):
         System performance metrics
     """
     try:
-        # Get metrics from all ML modules
+        # Get metrics from all ML modules with privacy settings
         career_recommender = CareerRecommender()
         peer_analyzer = PeerAnalyzer()
-        anomaly_detector = AnomalyDetector()
+        
+        # Initialize anomaly detector with privacy settings
+        anomaly_settings = getattr(settings, 'ANOMALY_DETECTION_SETTINGS', {})
+        anomaly_detector = AnomalyDetector(
+            contamination=anomaly_settings.get('CONTAMINATION', 0.1),
+            sensitivity=anomaly_settings.get('SENSITIVITY', 0.8),
+            epsilon=anomaly_settings.get('EPSILON', 1.0)
+        )
+        
+        # Initialize performance predictor with privacy settings
+        prediction_settings = getattr(settings, 'PERFORMANCE_PREDICTION_SETTINGS', {})
+        performance_predictor = PerformancePredictor(
+            model_version=prediction_settings.get('MODEL_VERSION', 'v1.0'),
+            epsilon=prediction_settings.get('EPSILON', 1.0)
+        )
         
         metrics = {
             'career_recommender': career_recommender.get_system_health(),
             'peer_analyzer': peer_analyzer.get_analysis_health(),
             'anomaly_detector': anomaly_detector.get_detection_health(),
+            'performance_predictor': performance_predictor.get_model_health(),
             'cache_stats': {
                 'cache_hit_rate': cache.get('cache_hit_rate', 0),
                 'total_requests': cache.get('total_requests', 0)
@@ -536,8 +573,12 @@ def get_performance_prediction(request, student_id: str):
     # Import performance predictor
     from core.apps.ml.models.performance_predictor import PerformancePredictor
     
-    # Generate predictions
-    predictor = PerformancePredictor()
+    # Generate predictions with privacy settings
+    prediction_settings = getattr(settings, 'PERFORMANCE_PREDICTION_SETTINGS', {})
+    predictor = PerformancePredictor(
+        model_version=prediction_settings.get('MODEL_VERSION', 'v1.0'),
+        epsilon=prediction_settings.get('EPSILON', 1.0)
+    )
     result = predictor.predict(student_id, subject_list)
     
     # Cache the result
@@ -599,6 +640,43 @@ def api_root(request):
     }
     
     return Response(api_info)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@throttle_classes([HealthCheckRateThrottle])
+@api_error_handler
+@monitor_performance
+def get_privacy_compliance(request):
+    """
+    RESTful endpoint for privacy compliance status.
+    
+    Args:
+        request: HTTP request object
+        
+    Returns:
+        Privacy compliance status and audit summary
+    """
+    try:
+        # Import privacy audit logger
+        from core.apps.ml.utils.privacy_audit_logger import get_privacy_compliance_status
+        
+        # Get compliance status
+        compliance_data = get_privacy_compliance_status()
+        
+        return Response(compliance_data)
+        
+    except ImportError:
+        return Response(
+            {'error': 'Privacy audit logger not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    except Exception as e:
+        logger.error(f"Privacy compliance API failed: {e}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class AnomalyDetector:
     """
-    Anomaly detection for student performance and behavioral patterns.
+    Anomaly detection for student performance and behavioral patterns with differential privacy.
     
     Features:
     - Sudden performance changes identification
@@ -32,11 +32,13 @@ class AnomalyDetector:
     - Stress indicators through grade volatility
     - Early intervention triggers
     - Multi-dimensional anomaly detection
+    - Differential privacy protection (ε-differential privacy)
     """
     
-    def __init__(self, contamination: float = 0.1, sensitivity: float = 0.8):
+    def __init__(self, contamination: float = 0.1, sensitivity: float = 0.8, epsilon: float = 1.0):
         self.contamination = contamination  # Expected proportion of anomalies
         self.sensitivity = sensitivity  # Detection sensitivity
+        self.epsilon = epsilon  # Differential privacy parameter
         self.isolation_forest = IsolationForest(
             contamination=contamination,
             random_state=42,
@@ -46,10 +48,76 @@ class AnomalyDetector:
         self.anomaly_thresholds = {}
         self.behavioral_patterns = {}
         
-        # Monitoring
+        # Privacy monitoring
+        self.privacy_budget_used = 0.0
+        self.privacy_violations = 0
+        self.query_count = 0
+        
+        # Performance monitoring
         self.detection_count = 0
         self.false_positives = 0
         self.last_detection_time = None
+    
+    def _add_privacy_noise(self, value: float, sensitivity: float = 1.0) -> float:
+        """
+        Add Laplace noise for differential privacy protection.
+        
+        Args:
+            value: Original anomaly score or metric
+            sensitivity: Sensitivity of the query (default: 1.0 for anomaly scores)
+            
+        Returns:
+            Noisy value preserving differential privacy
+        """
+        if self.epsilon <= 0:
+            return value
+        
+        scale = sensitivity / self.epsilon
+        noise = np.random.laplace(0, scale)
+        
+        # Update privacy budget tracking
+        self.privacy_budget_used += (sensitivity / self.epsilon)
+        
+        return value + noise
+    
+    def _apply_differential_privacy_to_anomalies(self, anomalies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Apply differential privacy noise to anomaly scores and metrics.
+        
+        Args:
+            anomalies: List of detected anomalies
+            
+        Returns:
+            Privacy-protected anomalies with noisy scores
+        """
+        private_anomalies = []
+        
+        for anomaly in anomalies:
+            private_anomaly = anomaly.copy()
+            
+            # Add noise to anomaly score (sensitivity = 1.0 for normalized scores)
+            if 'anomaly_score' in anomaly:
+                noisy_score = self._add_privacy_noise(anomaly['anomaly_score'], sensitivity=1.0)
+                private_anomaly['anomaly_score'] = max(0.0, min(1.0, noisy_score))
+            
+            # Add noise to confidence score
+            if 'confidence' in anomaly:
+                noisy_confidence = self._add_privacy_noise(anomaly['confidence'], sensitivity=1.0)
+                private_anomaly['confidence'] = max(0.0, min(1.0, noisy_confidence))
+            
+            # Add noise to severity score
+            if 'severity' in anomaly:
+                noisy_severity = self._add_privacy_noise(anomaly['severity'], sensitivity=1.0)
+                private_anomaly['severity'] = max(0.0, min(1.0, noisy_severity))
+            
+            # Add noise to performance metrics (sensitivity = 100.0 for scores 0-100)
+            if 'performance_drop' in anomaly:
+                noisy_drop = self._add_privacy_noise(anomaly['performance_drop'], sensitivity=100.0)
+                private_anomaly['performance_drop'] = max(0.0, noisy_drop)
+            
+            private_anomalies.append(private_anomaly)
+        
+        return private_anomalies
         
     def detect_anomalies(self, student_id: str, time_window: int = 30) -> Dict[str, Any]:
         """
@@ -80,23 +148,58 @@ class AnomalyDetector:
                 stress_indicators
             )
             
-            # Generate intervention recommendations
-            recommendations = self._generate_interventions(combined_anomalies)
+            # Apply differential privacy to all anomaly results
+            private_performance_anomalies = self._apply_differential_privacy_to_anomalies(performance_anomalies)
+            private_behavioral_anomalies = self._apply_differential_privacy_to_anomalies(behavioral_anomalies)
+            private_stress_indicators = self._apply_differential_privacy_to_anomalies(stress_indicators)
+            private_combined_anomalies = self._apply_differential_privacy_to_anomalies(combined_anomalies)
             
-            # Log detection
-            self._log_detection(student_id, combined_anomalies)
+            # Generate intervention recommendations (based on private data)
+            recommendations = self._generate_interventions(private_combined_anomalies)
+            
+            # Calculate privacy-protected confidence
+            detection_confidence = self._calculate_confidence(private_combined_anomalies)
+            noisy_confidence = self._add_privacy_noise(detection_confidence, sensitivity=1.0)
+            noisy_confidence = max(0.0, min(1.0, noisy_confidence))
+            
+            # Update query count and log detection
+            self.query_count += 1
+            self._log_detection(student_id, private_combined_anomalies)
+            
+                    # Log privacy event for audit trail
+            try:
+                from core.apps.ml.utils.privacy_audit_logger import log_privacy_event
+                log_privacy_event(
+                    module_name='anomaly_detector',
+                    student_id=student_id,
+                    privacy_params={
+                        'epsilon': self.epsilon,
+                        'privacy_budget_used': self.privacy_budget_used,
+                        'differential_privacy': True,
+                        'anomalies_detected': len(private_combined_anomalies)
+                    }
+                )
+            except ImportError:
+                logger.warning("Privacy audit logger not available")
             
             return {
                 'student_id': student_id,
                 'analysis_window': f"{time_window} days",
-                'anomalies_detected': len(combined_anomalies),
-                'performance_anomalies': performance_anomalies,
-                'behavioral_anomalies': behavioral_anomalies,
-                'stress_indicators': stress_indicators,
-                'combined_analysis': combined_anomalies,
+                'anomalies_detected': len(private_combined_anomalies),
+                'performance_anomalies': private_performance_anomalies,
+                'behavioral_anomalies': private_behavioral_anomalies,
+                'stress_indicators': private_stress_indicators,
+                'combined_analysis': private_combined_anomalies,
                 'intervention_recommendations': recommendations,
-                'detection_confidence': self._calculate_confidence(combined_anomalies),
-                'analysis_timestamp': datetime.now().isoformat()
+                'detection_confidence': noisy_confidence,
+                'privacy_guarantees': {
+                    'differential_privacy': True,
+                    'epsilon': self.epsilon,
+                    'privacy_budget_used': round(self.privacy_budget_used, 4),
+                    'noise_added': True
+                },
+                'analysis_timestamp': datetime.now().isoformat(),
+                'privacy_compliant': True
             }
             
         except Exception as e:
@@ -528,11 +631,18 @@ class AnomalyDetector:
             'combined_analysis': [],
             'intervention_recommendations': [],
             'detection_confidence': 0.0,
-            'analysis_timestamp': datetime.now().isoformat()
+            'privacy_guarantees': {
+                'differential_privacy': True,
+                'epsilon': self.epsilon,
+                'privacy_budget_used': round(self.privacy_budget_used, 4),
+                'noise_added': False
+            },
+            'analysis_timestamp': datetime.now().isoformat(),
+            'privacy_compliant': True
         }
     
     def _log_detection(self, student_id: str, anomalies: List[Dict[str, Any]]):
-        """Log anomaly detection for audit trail."""
+        """Log anomaly detection for audit trail with privacy tracking."""
         self.detection_count += 1
         self.last_detection_time = datetime.now()
         
@@ -540,20 +650,30 @@ class AnomalyDetector:
             'student_id': student_id,
             'anomalies_count': len(anomalies),
             'high_severity_count': len([a for a in anomalies if a.get('severity') == 'high']),
+            'privacy_budget_used': round(self.privacy_budget_used, 4),
+            'epsilon': self.epsilon,
+            'privacy_compliant': True,
             'timestamp': self.last_detection_time.isoformat()
         }
         
-        logger.info(f"Anomaly detection completed: {log_entry}")
+        logger.info(f"Privacy-protected anomaly detection completed: {log_entry}")
     
     def get_detection_health(self) -> Dict[str, Any]:
-        """Get health metrics for anomaly detection."""
+        """Get health metrics for anomaly detection with privacy monitoring."""
         return {
             'status': 'healthy' if self.detection_count > 0 else 'unknown',
             'total_detections': self.detection_count,
+            'total_queries': self.query_count,
+            'privacy_violations': self.privacy_violations,
             'false_positives': self.false_positives,
             'last_detection_time': self.last_detection_time.isoformat() if self.last_detection_time else None,
             'detection_settings': {
                 'contamination': self.contamination,
                 'sensitivity': self.sensitivity
+            },
+            'privacy_settings': {
+                'epsilon': self.epsilon,
+                'privacy_budget_used': round(self.privacy_budget_used, 4),
+                'differential_privacy': True
             }
         }
