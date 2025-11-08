@@ -7,7 +7,23 @@ The Smart Student Analytics System (SSAS) is a **production-ready** AI-powered e
 **🚀 Current Status: PRODUCTION-READY** ✅  
 **System Reliability: 100% test success rate** ✅  
 **Performance: Real-time (<100ms) ML predictions** ✅  
-**Privacy: GDPR-compliant with differential privacy** ✅  
+**Privacy: GDPR-compliant with differential privacy** ✅
+
+---
+
+## **📸 Screenshots**
+
+### Dashboard Overview
+![Dashboard](ATS-images/Dashboard.png)
+*Real-time analytics dashboard with comprehensive student insights and performance metrics*
+
+### Students Management
+![Students View](ATS-images/Students.png)
+*Student data management interface with advanced filtering and analytics capabilities*
+
+### Teachers Dashboard
+![Teachers View](ATS-images/Teachers.png)
+*Teacher-focused interface for class management and student performance tracking*
 
 ---
 
