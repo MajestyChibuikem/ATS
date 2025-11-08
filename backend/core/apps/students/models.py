@@ -72,6 +72,7 @@ class Student(models.Model):
             models.Index(fields=['current_class']),
             models.Index(fields=['stream']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['first_name', 'last_name']),
         ]
     
     def __str__(self):

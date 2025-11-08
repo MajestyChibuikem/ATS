@@ -44,9 +44,9 @@ def import_excel_data():
     return ss2_students, ss2_scores, ss3_students, ss3_scores
 
 def process_data(ss2_students, ss2_scores, ss3_students, ss3_scores):
-    """Process student data."""
-    print("\n🔧 Processing Data")
-    print("=" * 25)
+    """Process student data with proper longitudinal tracking."""
+    print("\n🔧 Processing Data with Student Progression")
+    print("=" * 45)
     
     # Create subjects from the actual data
     all_subjects = set()
@@ -57,105 +57,207 @@ def process_data(ss2_students, ss2_scores, ss3_students, ss3_scores):
     subjects = list(all_subjects)
     print(f"Found subjects: {subjects}")
     
+    # Create subjects with proper codes
+    subject_codes = {
+        'Mathematics': 'MATH',
+        'English Language': 'ENG',
+        'Further Mathematics': 'FUR_MATH',
+        'Physics': 'PHY',
+        'Chemistry': 'CHEM',
+        'Biology': 'BIO',
+        'Agricultural Science': 'AGRI_SCI',
+        'Government': 'GOV',
+        'Economics': 'ECON',
+        'History': 'HIST',
+        'Literature': 'LIT',
+        'Geography': 'GEO',
+        'Christian Religious Studies': 'CRS',
+        'Civic Education': 'CIVIC',
+        'Oral English': 'ORAL_ENG',
+        'Igbo Language': 'IGBO'
+    }
+    
     for subject_name in subjects:
-        Subject.objects.get_or_create(name=subject_name)
+        code = subject_codes.get(subject_name, subject_name[:10].replace(' ', '_').upper())
+        Subject.objects.get_or_create(
+            name=subject_name,
+            defaults={
+                'code': code,
+                'category': 'Core' if subject_name in ['Mathematics', 'English Language'] else 'Elective',
+                'stream': 'All',
+                'description': f'{subject_name} subject'
+            }
+        )
     
     print(f"✅ Created {len(subjects)} subjects")
     
-    # Process students
-    students_created = 0
+    # Create academic years
+    academic_years = {
+        'SS2': AcademicYear.objects.get_or_create(
+            year='2022/2023',
+            term='First Term',
+            defaults={
+                'start_date': datetime(2022, 9, 1).date(),
+                'end_date': datetime(2023, 6, 30).date(),
+                'is_current': False
+            }
+        )[0],
+        'SS3': AcademicYear.objects.get_or_create(
+            year='2023/2024',
+            term='First Term',
+            defaults={
+                'start_date': datetime(2023, 9, 1).date(),
+                'end_date': datetime(2024, 6, 30).date(),
+                'is_current': True
+            }
+        )[0]
+    }
+    
+    print("✅ Created academic years")
+    
+    # Process students with longitudinal tracking
+    students_processed = 0
     scores_created = 0
     
-    # Process SS2 students
+    # First, process all unique students (combine SS2 and SS3)
+    all_students_data = {}
+    
+    # Collect SS2 students
     for _, row in ss2_students.iterrows():
-        try:
-            student_id = str(row.get('StudentID', f"SS2_{students_created+1}"))
-            student, created = Student.objects.get_or_create(
-                student_id=student_id,
-                defaults={
-                    'first_name': str(row.get('FirstName', f'Student{students_created+1}')),
-                    'last_name': str(row.get('LastName', f'SS2_{students_created+1}')),
-                    'current_class': 'SS2',
-                    'stream': str(row.get('Stream', 'Science')),
-                    'date_of_birth': datetime.now().date(),
-                    'gender': str(row.get('Gender', 'Male')),
-                    'guardian_name': 'Guardian',
-                    'guardian_contact': str(row.get('GuardianContact', '1234567890')),
-                    'address': 'Address'
-                }
-            )
-            
-            students_created += 1  # Count all processed students, not just created ones
-                    
-        except Exception as e:
-            print(f"⚠️  Error processing SS2 student: {e}")
+        student_id = str(row.get('StudentID', ''))
+        if student_id:
+            all_students_data[student_id] = {
+                'ss2_data': row,
+                'ss3_data': None
+            }
     
-    # Process SS3 students
+    # Collect SS3 students and match with SS2
     for _, row in ss3_students.iterrows():
+        student_id = str(row.get('StudentID', ''))
+        if student_id:
+            if student_id in all_students_data:
+                # Student exists in SS2, add SS3 data
+                all_students_data[student_id]['ss3_data'] = row
+            else:
+                # New student in SS3 only
+                all_students_data[student_id] = {
+                    'ss2_data': None,
+                    'ss3_data': row
+                }
+    
+    print(f"📊 Found {len(all_students_data)} unique students")
+    
+    # Process each unique student
+    for student_id, data in all_students_data.items():
         try:
-            student_id = str(row.get('StudentID', f"SS3_{students_created+1}"))
+            # Determine current class (prioritize SS3 if available)
+            if data['ss3_data'] is not None:
+                current_class = 'SS3'
+                source_data = data['ss3_data']
+                print(f"🔄 Processing {student_id}: SS2 → SS3 progression")
+            else:
+                current_class = 'SS2'
+                source_data = data['ss2_data']
+                print(f"📚 Processing {student_id}: SS2 only")
+            
+            # Create or update student
             student, created = Student.objects.get_or_create(
                 student_id=student_id,
                 defaults={
-                    'first_name': str(row.get('FirstName', f'Student{students_created+1}')),
-                    'last_name': str(row.get('LastName', f'SS3_{students_created+1}')),
-                    'current_class': 'SS3',
-                    'stream': str(row.get('Stream', 'Science')),
+                    'first_name': str(source_data.get('FirstName', 'Unknown')),
+                    'last_name': str(source_data.get('LastName', 'Student')),
+                    'current_class': current_class,
+                    'stream': str(source_data.get('Stream', 'Science')),
                     'date_of_birth': datetime.now().date(),
-                    'gender': str(row.get('Gender', 'Male')),
+                    'gender': str(source_data.get('Gender', 'Male')),
                     'guardian_name': 'Guardian',
-                    'guardian_contact': str(row.get('GuardianContact', '1234567890')),
+                    'guardian_contact': str(source_data.get('GuardianContact', '1234567890')),
                     'address': 'Address'
                 }
             )
             
-            students_created += 1  # Count all processed students, not just created ones
+            # If student already exists, update current class
+            if not created:
+                student.current_class = current_class
+                student.save()
+                print(f"  ✅ Updated {student_id} to {current_class}")
+            
+            students_processed += 1
                     
         except Exception as e:
-            print(f"⚠️  Error processing SS3 student: {e}")
+            print(f"⚠️  Error processing student {student_id}: {e}")
     
-    # Process scores
-    for df_scores in [ss2_scores, ss3_scores]:
-        for _, row in df_scores.iterrows():
+    # Process scores with proper aggregation per subject per academic year
+    print("\n📊 Processing Student Scores by Academic Year (with aggregation)")
+    
+    # Function to aggregate and create scores
+    def aggregate_and_create_scores(scores_df, academic_year_obj, year_name):
+        """Aggregate multiple assessments into final subject scores."""
+        print(f"Processing {year_name} scores...")
+        
+        # Group by student and subject
+        grouped = scores_df.groupby(['StudentID', 'SubjectName'])
+        
+        for (student_id, subject_name), group in grouped:
             try:
-                student_id = str(row.get('StudentID'))
-                subject_name = str(row.get('SubjectName'))
-                score_value = float(row.get('Score', 0))
-                
                 student = Student.objects.get(student_id=student_id)
                 subject = Subject.objects.get(name=subject_name)
                 
-                # Get or create academic year
-                academic_year, _ = AcademicYear.objects.get_or_create(
-                    year='2024/2025',
-                    term='First Term',
+                # Calculate final scores from all assessments
+                # Get examination scores (final exams are most important)
+                exam_scores = group[group['AssessmentType'] == 'Examination']['Score']
+                
+                # Get continuous assessment scores (Quiz, Assignment, Project)
+                ca_scores = group[group['AssessmentType'].isin(['Quiz', 'Assignment', 'Project'])]['Score']
+                
+                # Calculate final CA and Exam scores
+                if len(exam_scores) > 0:
+                    final_exam_score = float(exam_scores.mean())
+                else:
+                    final_exam_score = float(group['Score'].mean())
+                
+                if len(ca_scores) > 0:
+                    final_ca_score = float(ca_scores.mean())
+                else:
+                    final_ca_score = float(group['Score'].mean())
+                
+                # Calculate total score (70% exam + 30% CA)
+                total_score = (final_exam_score * 0.7) + (final_ca_score * 0.3)
+                
+                # Calculate class average for this subject
+                all_subject_scores = scores_df[scores_df['SubjectName'] == subject_name]
+                class_average = float(all_subject_scores['Score'].mean())
+                
+                # Create or update the student score
+                StudentScore.objects.update_or_create(
+                    student=student,
+                    subject=subject,
+                    academic_year=academic_year_obj,
                     defaults={
-                        'start_date': datetime.now().date(),
-                        'end_date': datetime.now().date(),
-                        'is_current': True
+                        'total_score': total_score,
+                        'class_average': class_average,
+                        'continuous_assessment': final_ca_score,
+                        'examination_score': final_exam_score
                     }
                 )
                 
-                StudentScore.objects.get_or_create(
-                    student=student,
-                    subject=subject,
-                    academic_year=academic_year,
-                    defaults={
-                        'total_score': score_value,
-                        'class_average': 75.0,
-                        'continuous_assessment': score_value * 0.3,
-                        'examination_score': score_value * 0.7
-                    }
-                )
-                scores_created += 1
-                    
             except Exception as e:
-                print(f"⚠️  Error processing score: {e}")
+                print(f"⚠️  Error processing {student_id} - {subject_name}: {e}")
     
-    print(f"✅ Created {students_created} students")
+    # Process SS2 scores (2022/2023)
+    aggregate_and_create_scores(ss2_scores, academic_years['SS2'], 'SS2 (2022/2023)')
+    
+    # Process SS3 scores (2023/2024)
+    aggregate_and_create_scores(ss3_scores, academic_years['SS3'], 'SS3 (2023/2024)')
+    
+    # Count final scores created
+    final_score_count = StudentScore.objects.count()
+    scores_created = final_score_count
+    
+    print(f"✅ Processed {students_processed} unique students")
     print(f"✅ Created {scores_created} score records")
     
-    return students_created, scores_created
+    return students_processed, scores_created
 
 def train_models():
     """Train ML models."""
@@ -170,8 +272,14 @@ def train_models():
     print("Training Tier 1...")
     try:
         tier1_result = tier1.train_models()
-        tier1_success = tier1_result.get('success', False)
+        tier1_success = 'ensemble_performance' in tier1_result
         print(f"Tier 1 training: {'SUCCESS' if tier1_success else 'FAILED'}")
+        if tier1_success:
+            ensemble_r2 = tier1_result['ensemble_performance']['r2']
+            print(f"  Ensemble R²: {ensemble_r2:.3f}")
+            # Save models to disk
+            tier1.save_models()
+            print(f"  ✅ Models saved to disk")
     except Exception as e:
         print(f"Tier 1 training failed: {e}")
         tier1_success = False
@@ -179,8 +287,18 @@ def train_models():
     print("Training Tier 2...")
     try:
         tier2_result = tier2.train_models()
-        tier2_success = tier2_result.get('success', False)
+        tier2_success = len(tier2_result) > 0  # Check if results dictionary has subjects
         print(f"Tier 2 training: {'SUCCESS' if tier2_success else 'FAILED'}")
+        if tier2_success:
+            subjects_trained = len(tier2_result)
+            print(f"  Subjects trained: {subjects_trained}")
+            # Show some performance metrics
+            for subject, result in list(tier2_result.items())[:2]:  # Show first 2 subjects
+                r2 = result['performance']['r2']
+                print(f"    {subject}: R² = {r2:.3f}")
+            # Save models to disk
+            tier2.save_models()
+            print(f"  ✅ Models saved to disk")
     except Exception as e:
         print(f"Tier 2 training failed: {e}")
         tier2_success = False
@@ -188,8 +306,18 @@ def train_models():
     print("Training Tier 3...")
     try:
         tier3_result = tier3.train_models()
-        tier3_success = tier3_result.get('success', False)
+        tier3_success = len(tier3_result) > 0  # Check if results dictionary has subjects
         print(f"Tier 3 training: {'SUCCESS' if tier3_success else 'FAILED'}")
+        if tier3_success:
+            subjects_trained = len(tier3_result)
+            print(f"  Subjects trained: {subjects_trained}")
+            # Show some performance metrics
+            for subject, result in list(tier3_result.items())[:2]:  # Show first 2 subjects
+                r2 = result['performance']['r2']
+                print(f"    {subject}: R² = {r2:.3f}")
+            # Save models to disk
+            tier3.save_models()
+            print(f"  ✅ Models saved to disk")
     except Exception as e:
         print(f"Tier 3 training failed: {e}")
         tier3_success = False

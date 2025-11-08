@@ -1,0 +1,118 @@
+{
+  "monitoring_data": {
+    "system_health": {
+      "status": "healthy",
+      "timestamp": "2025-08-14T14:27:32.540212",
+      "checks": {
+        "database": "healthy",
+        "cache": "healthy",
+        "ml_models": "healthy",
+        "data": "healthy"
+      },
+      "data_counts": {
+        "students": 2000,
+        "scores": 41627
+      }
+    },
+    "performance_metrics": {
+      "timestamp": "2025-08-14T14:27:32.582582",
+      "response_times": {
+        "ml_prediction": 0.08399999999999999,
+        "database_query": 3.144,
+        "total": 45.354
+      },
+      "throughput": {},
+      "resource_usage": {}
+    },
+    "ml_model_health": {
+      "timestamp": "2025-08-14T14:27:32.627966",
+      "models": {
+        "tier1_critical": {
+          "status": "available",
+          "version": "v2.0",
+          "last_trained": "Unknown"
+        },
+        "tier2_science": {
+          "status": "unavailable",
+          "error": "Subject Mathematics is not a science subject"
+        },
+        "tier3_arts": {
+          "status": "unavailable",
+          "error": "Subject Mathematics is not an arts subject"
+        }
+      },
+      "accuracy": {
+        "tier1_critical": {
+          "prediction_success": true,
+          "confidence": 0.5
+        }
+      },
+      "availability": {}
+    },
+    "database_health": {
+      "timestamp": "2025-08-14T14:27:32.632572",
+      "connection": {
+        "status": "unhealthy",
+        "error": "no such function: version"
+      },
+      "performance": {
+        "error": "no such table: pg_stats"
+      },
+      "data_integrity": {
+        "students": 2000,
+        "scores": 41627,
+        "avg_scores_per_student": 20.8135,
+        "data_quality": "good"
+      }
+    },
+    "api_metrics": {},
+    "privacy_compliance": {
+      "timestamp": "2025-08-14T14:27:32.633375",
+      "gdpr_compliance": {
+        "data_encryption": "enabled",
+        "access_controls": "enabled",
+        "data_retention": "configured",
+        "user_consent": "tracked",
+        "status": "compliant"
+      },
+      "differential_privacy": {
+        "epsilon": 1.0,
+        "noise_added": true,
+        "privacy_budget": "tracked",
+        "status": "active"
+      },
+      "data_anonymization": {
+        "k_anonymity": 10,
+        "data_masking": "enabled",
+        "pseudonymization": "enabled",
+        "status": "active"
+      },
+      "access_logs": {
+        "logging_enabled": true,
+        "audit_trail": "maintained",
+        "access_monitoring": "active",
+        "status": "healthy"
+      }
+    },
+    "alerts": [
+      {
+        "level": "critical",
+        "message": "tier2_science model is unavailable",
+        "timestamp": "2025-08-14T14:27:32.633390",
+        "category": "ml_models"
+      },
+      {
+        "level": "critical",
+        "message": "tier3_arts model is unavailable",
+        "timestamp": "2025-08-14T14:27:32.633393",
+        "category": "ml_models"
+      }
+    ]
+  },
+  "generated_at": "2025-08-14T14:27:32.633490",
+  "system_info": {
+    "django_version": "5.1.6",
+    "python_version": "3.10.11 (v3.10.11:7d4cc5aa85, Apr  4 2023, 19:05:19) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "settings_module": "core.settings"
+  }
+}

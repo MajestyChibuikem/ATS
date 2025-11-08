@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSAS Debug</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles/main.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <div style="padding: 20px; text-align: center;">
+            <h1>SSAS Debug Page</h1>
+            <p>Checking if components are loading...</p>
+            <div id="status">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Component Scripts -->
+    <script src="components/Login.js"></script>
+    <script src="components/Dashboard.js"></script>
+    <script src="components/App.js"></script>
+
+    <!-- Debug Script -->
+    <script>
+        console.log('Debug page loaded');
+        
+        // Check if components are available
+        setTimeout(() => {
+            const status = document.getElementById('status');
+            
+            if (typeof Login !== 'undefined') {
+                console.log('Login component loaded');
+                status.innerHTML += '<br>✅ Login component loaded';
+            } else {
+                console.error('Login component not found');
+                status.innerHTML += '<br>❌ Login component not found';
+            }
+            
+            if (typeof Dashboard !== 'undefined') {
+                console.log('Dashboard component loaded');
+                status.innerHTML += '<br>✅ Dashboard component loaded';
+            } else {
+                console.error('Dashboard component not found');
+                status.innerHTML += '<br>❌ Dashboard component not found';
+            }
+            
+            if (typeof App !== 'undefined') {
+                console.log('App component loaded');
+                status.innerHTML += '<br>✅ App component loaded';
+                
+                // Test the app
+                const app = new App();
+                const container = document.getElementById('app');
+                app.init(container);
+                
+            } else {
+                console.error('App component not found');
+                status.innerHTML += '<br>❌ App component not found';
+            }
+            
+            status.innerHTML += '<br><br><a href="index.html" style="color: var(--primary-green);">Go to Main App</a>';
+            
+        }, 1000);
+    </script>
+</body>
+</html>

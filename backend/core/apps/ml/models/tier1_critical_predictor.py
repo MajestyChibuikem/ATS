@@ -320,28 +320,28 @@ class Tier1CriticalPredictor:
             if not scores.exists():
                 return None
             
-            # Convert to DataFrame
+            # Convert to DataFrame (convert Decimal to float for ML compatibility)
             data = []
             for score in scores:
                 data.append({
                     'student_id': score.student.student_id,
                     'subject_name': score.subject.name,
-                    'total_score': score.total_score,
-                    'continuous_assessment': score.continuous_assessment,
-                    'examination_score': score.examination_score,
+                    'total_score': float(score.total_score),
+                    'continuous_assessment': float(score.continuous_assessment),
+                    'examination_score': float(score.examination_score),
                     'academic_year': score.academic_year.year,
                     'term': score.term,
                     'student_class': score.student.current_class,
                     'student_stream': score.student.stream,
                     'student_gender': score.student.gender,
                     'student_age': score.student.age,
-                    'class_average': score.class_average,
+                    'class_average': float(score.class_average),
                     'teacher_id': score.teacher.id if score.teacher else None,
                     'teacher_name': score.teacher.full_name if score.teacher else 'Unknown',
                     'teacher_experience': score.teacher.years_experience if score.teacher else 0,
                     'teacher_qualification': score.teacher.qualification_level if score.teacher else 'Unknown',
                     'teacher_specialization': score.teacher.specialization if score.teacher else 'Unknown',
-                    'teacher_performance_rating': score.teacher.performance_rating if score.teacher else 0,
+                    'teacher_performance_rating': float(score.teacher.performance_rating) if score.teacher else 0.0,
                     'teacher_teaching_load': score.teacher.teaching_load if score.teacher else 0,
                     'teacher_years_at_school': score.teacher.years_at_school if score.teacher else 0,
                 })

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSAS - Smart Student Analytics System</title>
+    
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link href="styles/main.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Main App Container -->
+    <div id="app"></div>
+
+    <!-- Component Scripts -->
+    <script src="components/Login.js"></script>
+    <script src="components/Dashboard.js"></script>
+    <script src="components/Students.js"></script>
+    <script src="components/Teachers.js"></script>
+    <script src="components/App.js"></script>
+
+    <!-- Main Application Script -->
+    <script>
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            const app = new App();
+            const appContainer = document.getElementById('app');
+            app.init(appContainer);
+        });
+    </script>
+</body>
+</html>
